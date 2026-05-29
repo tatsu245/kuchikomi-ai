@@ -60,6 +60,8 @@ if "generated" not in st.session_state:
     st.session_state.generated = {}
 if "sent" not in st.session_state:
     st.session_state.sent = set()
+if "sent_replies" not in st.session_state:
+    st.session_state.sent_replies = {}  # rid -> 実際に送信した返信文
 
 
 # ========== ヘッダー ==========
@@ -132,7 +134,12 @@ def render_reviews(review_list, tab_prefix: str = ""):
             """, unsafe_allow_html=True)
 
             if is_done:
-                st.success("✅ 返信済み（じゃらん管理画面に投稿済み）" if rid in st.session_state.sent else "✅ 返信済み")
+                if rid in st.session_state.sent_replies:
+                    st.success("✅ 返信済み（このセッションで送信）")
+                    with st.expander("送信した返信文を確認"):
+                        st.write(st.session_state.sent_replies[rid])
+                else:
+                    st.success("✅ 返信済み")
                 continue
 
             col_gen, _ = st.columns([2, 6])
@@ -142,19 +149,32 @@ def render_reviews(review_list, tab_prefix: str = ""):
                         st.session_state.generated[rid] = generate_response(review["text"])
 
             if rid in st.session_state.generated:
-                st.markdown("**AI生成返信案：**")
+                st.markdown("**AI生成返信案（自由に編集できます）：**")
+                edit_key = f"edit_{key}"
+                # 初回はAI生成文、以降は編集内容を保持
+                if edit_key not in st.session_state:
+                    st.session_state[edit_key] = st.session_state.generated[rid]
                 edited = st.text_area(
-                    "内容を確認・編集してください",
-                    value=st.session_state.generated[rid],
+                    "↓ 自由に編集してください",
+                    value=st.session_state[edit_key],
                     height=180,
-                    key=f"edit_{key}",
+                    key=edit_key,
                 )
-                col_send, col_skip, _ = st.columns([2, 2, 4])
+                char_count = len(edited)
+                st.caption(f"文字数: {char_count}文字")
+
+                col_send, col_reset, col_skip, _ = st.columns([2, 2, 2, 2])
                 with col_send:
                     if st.button("📤 承認して送信", key=f"send_{key}", type="primary", use_container_width=True):
+                        final_text = st.session_state.get(edit_key, st.session_state.generated[rid])
                         st.session_state.sent.add(rid)
+                        st.session_state.sent_replies[rid] = final_text
                         del st.session_state.generated[rid]
                         st.success("✅ 送信しました")
+                        st.rerun()
+                with col_reset:
+                    if st.button("↩ AI文に戻す", key=f"reset_{key}", use_container_width=True):
+                        st.session_state[edit_key] = st.session_state.generated[rid]
                         st.rerun()
                 with col_skip:
                     if st.button("⏭ スキップ", key=f"skip_{key}", use_container_width=True):
