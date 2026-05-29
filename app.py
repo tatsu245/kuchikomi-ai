@@ -2,17 +2,9 @@
 口コミ返信AI - 管理画面デモ
 悠の湯 風の季 × GREE X
 """
-import subprocess
 import streamlit as st
 from ai_responder import generate_response
 from jalan_public_scraper import Review, scrape_jalan_reviews
-
-# Streamlit Cloud 環境でPlaywrightブラウザをインストール
-@st.cache_resource
-def install_playwright():
-    subprocess.run(["playwright", "install", "chromium"], check=True, capture_output=True)
-
-install_playwright()
 
 st.set_page_config(
     page_title="口コミ返信AI | 悠の湯 風の季",
